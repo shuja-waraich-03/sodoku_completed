@@ -28,6 +28,7 @@ public class Sudoku extends Application
     private TextField[][] textFields = new TextField[SIZE][SIZE];
     private int width = 800;
     private int height = 800;
+    private boolean updatingBoard = false;
 
     @Override
     public void start(Stage primaryStage) throws Exception
@@ -110,6 +111,12 @@ public class Sudoku extends Application
                 // using a listener instead of a KEY_TYPED event handler
                 // KEY_TYPED requires the user to hit ENTER to trigger the event
                 textField.textProperty().addListener((observable, oldValue, newValue) -> {
+
+                    if (updatingBoard)
+                    {
+                        return;
+                    }
+
                     if (!newValue.matches("[1-9]?")) {
                         // restrict textField to only accept single digit numbers from 1 to 9
                         textField.setText(oldValue);
@@ -187,6 +194,7 @@ public class Sudoku extends Application
 
     private void updateBoard()
     {
+        updatingBoard = true;
         for (int row = 0; row < SIZE; row++)
         {
             for (int col = 0; col < SIZE; col++)
@@ -203,6 +211,7 @@ public class Sudoku extends Application
                 }
             }
         }
+        updatingBoard = false;
     }
 
     private MenuBar createMenuBar(Stage primaryStage)
