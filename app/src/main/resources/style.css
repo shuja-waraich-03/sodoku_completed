@@ -73,3 +73,7 @@
     -fx-border-width: 0 2 2 0;
 }
   
+
+.hint-highlight {
+    -fx-background-color: rgb(0, 225, 255); /* Highlight color for hints */
+}

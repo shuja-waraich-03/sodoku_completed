@@ -5,20 +5,34 @@ import java.io.FileInputStream;
 import java.io.IOException;
 import java.net.URL;
 import java.nio.file.Files;
+import java.util.List;
+import java.util.Set;
 
 import javafx.application.Application;
+import javafx.application.Platform;
 import javafx.scene.Scene;
 import javafx.scene.control.Alert;
 import javafx.scene.control.Alert.AlertType;
+import javafx.scene.control.ButtonType;
+import javafx.scene.control.Label;
 import javafx.scene.control.Menu;
 import javafx.scene.control.MenuBar;
 import javafx.scene.control.MenuItem;
 import javafx.scene.control.SeparatorMenuItem;
 import javafx.scene.control.TextField;
 import javafx.scene.layout.GridPane;
+import javafx.scene.layout.HBox;
 import javafx.scene.layout.VBox;
 import javafx.stage.FileChooser;
 import javafx.stage.Stage;
+
+
+import javafx.scene.control.Alert;
+import javafx.scene.control.Alert.AlertType;
+
+//timer imports
+import java.util.Timer;
+import java.util.TimerTask;
 
 public class Sudoku extends Application
 {
@@ -26,17 +40,30 @@ public class Sudoku extends Application
     public static final int SIZE = 9;
     private VBox root;
     private TextField[][] textFields = new TextField[SIZE][SIZE];
-    private int width = 800;
-    private int height = 800;
+    private int width = 600;
+    private int height = 600;
     private boolean updatingBoard = false;
+
+
+    //timer variables
+    private Timer timer;
+    private long startTime;
+    private long elapsedTime = 0; // to keep track of cumulative elapsed time
+    private Label timerLabel;
+
 
     @Override
     public void start(Stage primaryStage) throws Exception
     {
         root = new VBox();
 
-        //System.out.println(new File(".").getAbsolutePath());
+        // Initialize the timer label
+        timerLabel = new Label("Time: 0 seconds");
+        HBox timerBox = new HBox(timerLabel);
+        timerBox.setStyle("-fx-alignment: top-right; -fx-padding: 10;");
+        root.getChildren().add(timerBox);
 
+        //System.out.println(new File(".").getAbsolutePath());
         root.getChildren().add(createMenuBar(primaryStage));
 
         GridPane gridPane = new GridPane();
@@ -99,13 +126,15 @@ public class Sudoku extends Application
                 // to bring up a selection of possible values
                 textField.setOnContextMenuRequested(event -> {
                     // change the textfield background to red while keeping the rest of the css the same
-                    textField.getStyleClass().add("text-field-highlight");
+                    // textField.getStyleClass().add("text-field-highlight");
                     Alert alert = new Alert(AlertType.INFORMATION);
                     alert.setTitle("Possible values");
-                    // TODO: show a list of possible values that can go in this square
-                    alert.setContentText("1 2 3 4 5 6 7 8 9");
-                    alert.showAndWait();
-                    textField.getStyleClass().remove("text-field-highlight");
+                    String id = textField.getId();
+                    String[] parts = id.split("-");
+                    int r = Integer.parseInt(parts[0]);
+                    int c = Integer.parseInt(parts[1]);
+
+                    showPossibleValues(r, c);
                 });
 
                 // using a listener instead of a KEY_TYPED event handler
@@ -135,6 +164,7 @@ public class Sudoku extends Application
                             board.setCell(r, c, value);
                             // remove the highlight when we set a value
                             textField.getStyleClass().remove("text-field-selected");
+                            
                         }
                         catch (NumberFormatException e)
                         {
@@ -144,6 +174,14 @@ public class Sudoku extends Application
                         {
                             // TODO: if the value is not a possible value, catch the exception and show an alert
                             System.out.println("Invalid Value: " + newValue);
+                            Alert alert = new Alert(AlertType.ERROR);
+                            alert.setTitle("Invalid Value");
+                            alert.setHeaderText("Invalid Value");
+                            alert.setContentText("This value is not possible in this cell. Please try again.");
+                            alert.showAndWait();
+                            updateBoard();
+                            updateBoard();
+                            
                         }
                     }
                     else
@@ -153,6 +191,7 @@ public class Sudoku extends Application
                 });
             }
         }
+
 
         // add key listener to the root node to grab ESC keys
         root.setOnKeyPressed(event -> {
@@ -189,7 +228,10 @@ public class Sudoku extends Application
 
         primaryStage.setOnCloseRequest(event -> {
         	System.out.println("oncloserequest");
+            stopTimer();
         });
+
+        startTimer();
     }
 
     private void updateBoard()
@@ -200,7 +242,7 @@ public class Sudoku extends Application
             for (int col = 0; col < SIZE; col++)
             {
                 TextField textField = textFields[row][col];
-                int value = board.getCell(row, col);
+                int value = board.getCell(row, col); 
                 if (value > 0)
                 {
                     textField.setText(Integer.toString(value));
@@ -212,6 +254,19 @@ public class Sudoku extends Application
             }
         }
         updatingBoard = false;
+    }
+
+    private void showPossibleValues(int row, int col) {
+        Set<Integer> possibleValues = board.getPossibleValues(row, col);
+        StringBuilder content = new StringBuilder("Possible values: ");
+        for (Integer value : possibleValues) {
+            content.append(value).append(" ");
+        }
+
+        Alert alert = new Alert(AlertType.INFORMATION);
+        alert.setTitle("Possible values");
+        alert.setContentText(content.toString());
+        alert.showAndWait();
     }
 
     private MenuBar createMenuBar(Stage primaryStage)
@@ -263,10 +318,21 @@ public class Sudoku extends Application
             {
                 System.out.println("Selected file: " + file.getName());
                 try {
-                    //TODO: check if the file already exists, and ask the user if they want to overwrite
-                    writeToFile(file, board.toString());
+                // Check if the file already exists and prompt for confirmation to overwrite
+                if (file.exists()) {
+                    Alert alert = new Alert(Alert.AlertType.CONFIRMATION);
+                    alert.setTitle("Confirm Overwrite");
+                    alert.setHeaderText("File already exists");
+                    alert.setContentText("Do you want to overwrite the existing file?");
+                    java.util.Optional<ButtonType> result = alert.showAndWait();
+                    if (result.isPresent() && result.get() != ButtonType.OK) {
+                        return; // If user does not confirm, return without writing
+                    }
+                }
+                // Proceed with writing to the file
+                writeToFile(file, board.toString());
                 } catch (Exception e) {
-                    Alert alert = new Alert(AlertType.ERROR);
+                    Alert alert = new Alert(Alert.AlertType.ERROR);
                     alert.setTitle("Unable to save to file");
                     alert.setHeaderText("Unsaved changes detected!");
                     alert.setContentText(e.getMessage());
@@ -300,13 +366,15 @@ public class Sudoku extends Application
 
         addMenuItem(editMenu, "Undo", () -> {
             System.out.println("Undo");
-            //TODO: Undo the last move
+            board.undoMove();
+            updateBoard();
         });
 
         addMenuItem(editMenu, "Show values entered", () -> {
             System.out.println("Show all the values we've entered since we loaded the board");
-            //TODO: pop up a window showing all of the values we've entered
+            showEnteredValues();
         });
+
 
         menuBar.getMenus().add(editMenu);
 
@@ -317,12 +385,92 @@ public class Sudoku extends Application
 
         addMenuItem(hintMenu, "Show hint", () -> {
             System.out.println("Show hint");
-            //TODO: highlight cell where only one legal value is possible
+            highlightSingleValueCells();
         });
 
         menuBar.getMenus().add(hintMenu);
 
+
+        //
+        // Timer Menu
+        //
+        Menu timerMenu = new Menu("Timer");
+
+        addMenuItem(timerMenu, "Start Timer", this::startTimer);
+        addMenuItem(timerMenu, "Stop Timer", this::stopTimer);
+
+        menuBar.getMenus().add(timerMenu);
+
+         // Add the Solve Puzzle menu item
+         Menu solveMenu = new Menu("Solve");
+         addMenuItem(solveMenu, "Solve Puzzle", this::solvePuzzle);
+         menuBar.getMenus().add(solveMenu);
+
+
         return menuBar;
+    }
+
+    // Implement solvePuzzle method in Sudoku class
+    private void showAlert(String title, String message) {
+        Alert alert = new Alert(AlertType.INFORMATION);
+        alert.setTitle(title);
+        alert.setHeaderText(null);
+        alert.setContentText(message);
+        alert.showAndWait();
+    }
+
+    private void solvePuzzle() {
+        SudokuSolver solver = new SudokuSolver();
+        if (solver.solveSudoku(board)) {
+            updateBoard();
+            showAlert("Puzzle Solved", "The puzzle was successfully solved!");
+        } else {
+            showAlert("Unsolvable Puzzle", "The puzzle cannot be solved.");
+        }
+    }
+
+
+//methods for hints
+    private void highlightSingleValueCells() {
+        boolean foundHint = false;
+        for (int row = 0; row < SIZE; row++) {
+            for (int col = 0; col < SIZE; col++) {
+                if (board.getCell(row, col) == 0) { // Only check empty cells
+                    Set<Integer> possibleValues = board.getPossibleValues(row, col);
+                    if (possibleValues.size() == 1) {
+                        TextField textField = textFields[row][col];
+                        textField.getStyleClass().add("hint-highlight");
+                        foundHint = true;
+                    }
+                }
+            }
+        }
+        if (!foundHint) {
+            Alert alert = new Alert(AlertType.INFORMATION);
+            alert.setTitle("Hints");
+            alert.setHeaderText(null);
+            alert.setContentText("No hints available.");
+            alert.showAndWait();
+        }
+    }
+
+
+//method for values entered since the start of the puzzle
+    private void showEnteredValues() {
+        List<Move> enteredValues = board.getEnteredValues();
+        StringBuilder message = new StringBuilder("Entered Values:\n");
+        for (Move move : enteredValues) {
+            message.append("Row: ").append(move.getRow())
+                   .append(", Column: ").append(move.getCol())
+                   .append(", Entered Values: ").append(board.getCell(move.getRow(), move.getCol()))
+                   .append("\n");
+        }
+        // Show entered values in a popup window
+        Alert alert = new Alert(AlertType.INFORMATION);
+        alert.setTitle("Entered Values");
+        alert.setHeaderText(null);
+        alert.setContentText(message.toString());
+        alert.showAndWait();
     }
 
     private static void writeToFile(File file, String content) throws IOException
@@ -336,7 +484,32 @@ public class Sudoku extends Application
         menuItem.setOnAction(event -> action.run());
         menu.getItems().add(menuItem);
     }
-        
+
+
+    private void startTimer() {
+        if (timer != null) {
+            timer.cancel();
+        }
+        startTime = System.currentTimeMillis();
+        timer = new Timer(true);
+        timer.scheduleAtFixedRate(new TimerTask() {
+            @Override
+            public void run() {
+                long currentTime = System.currentTimeMillis();
+                long totalElapsedTime = elapsedTime + (currentTime - startTime) / 1000;
+                Platform.runLater(() -> timerLabel.setText("Time: " + totalElapsedTime + " seconds"));
+            }
+        }, 0, 1000);
+    }
+
+    private void stopTimer() {
+        if (timer != null) {
+            timer.cancel();
+            long currentTime = System.currentTimeMillis();
+            elapsedTime += (currentTime - startTime) / 1000;
+        }
+    }
+       
     public static void main(String[] args) 
     {
         launch(args);

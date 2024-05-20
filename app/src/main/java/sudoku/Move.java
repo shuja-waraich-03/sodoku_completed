@@ -7,7 +7,7 @@ public class Move
 {
     public final int row;
     public final int col;
-    public final int value;
+    public final int previousValue;
 
     private static Map<String, Move> moveCache = new HashMap<>();
 
@@ -28,11 +28,32 @@ public class Move
         return move;
     }
 
-    private Move(int row, int col, int value)
+    Move(int row, int col, int previousValue)
     {
         this.row = row;
         this.col = col;
-        this.value = value;
+        this.previousValue = previousValue;
+    }
+
+    public int getRow() {
+        return row;
+    }
+
+    public int getCol() {
+        return col;
+    }
+
+    public int getPreviousValue() {
+        return previousValue;
+    }
+
+    @Override
+    public String toString() {
+        return "Move{" +
+                "row=" + row +
+                ", col=" + col +
+                ", value=" + previousValue +
+                '}';
     }
 
 }
