@@ -1,6 +1,4 @@
-# Sudoku Application
-
-Welcome to the Sudoku Application! This project is a Sudoku game implemented using JavaFX. It includes a variety of features to enhance your gameplay experience, such as loading and saving boards, undoing moves, providing hints, and more.
+# Sudoku Assignment
 
 ## Features and Implementation Details
 
